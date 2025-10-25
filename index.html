@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phi-2 Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        #login,
+        #chat {
+            display: none;
+        }
+
+        #login.active,
+        #chat.active {
+            display: block;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            cursor: pointer;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 20px 0;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .user {
+            background: #e3f2fd;
+            text-align: right;
+        }
+
+        .assistant {
+            background: #f5f5f5;
+        }
+
+        #input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        #input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Phi-2 Chat</h1>
+
+    <div id="login" class="active">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="chat">
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="input" placeholder="Type a message..."
+                onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const WORKER_URL = 'https://cloudflare-workers-ai.brian-mabry-edwards.workers.dev/';
+
+        let auth = '';
+        let messages = [];
+
+        function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            auth = btoa(`${user}:${pass}`);
+
+            document.getElementById('login').classList.remove('active');
+            document.getElementById('chat').classList.add('active');
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            messages.push({ role: 'user', content: text });
+            addMessage('user', text);
+            input.value = '';
+
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${auth}`,
+                    },
+                    body: JSON.stringify({ messages }),
+                });
+
+                if (!response.ok) throw new Error('Request failed');
+
+                const data = await response.json();
+                const reply = data.response;
+
+                messages.push({ role: 'assistant', content: reply });
+                addMessage('assistant', reply);
+            } catch (error) {
+                addMessage('assistant', 'Error: ' + error.message);
+            }
+        }
+
+        function addMessage(role, content) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.textContent = content;
+            document.getElementById('messages').appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>
